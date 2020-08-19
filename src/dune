@@ -1,0 +1,6 @@
+(executable
+  (name WM)
+  (package WM)
+  (public_name WM)
+  (libraries timber xcb))
+

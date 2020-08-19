@@ -1,0 +1,9 @@
+(library
+  (name xcb)
+  (public_name xcb)
+
+ (foreign_stubs
+  (language c)
+  (names xcb))
+
+  (c_library_flags (-lxcb-icccm -lxcb-keysyms -lxcb)))

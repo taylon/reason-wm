@@ -1,0 +1,27 @@
+{
+ "name": "wm",
+ "version": "0.1.0",
+ "description": "Window Manager written in ReasonML",
+ "license": "MIT",
+ "esy": {
+  "build": "refmterr dune build -p WM,xcb",
+  "install": [
+   "esy-installer xcb.install",
+   "esy-installer WM.install"
+  ]
+ },
+ "scripts": {
+  "format": "bash -c \"refmt --in-place **/*.re\"",
+  "run": "esy x WM"
+ },
+ "dependencies": {
+  "@esy-ocaml/reason": "^3.6.0",
+  "@opam/dune": "2.7.0",
+  "ocaml": "~4.10",
+  "@glennsl/timber": "^1.2.0"
+ },
+ "devDependencies": {
+  "refmterr": "*",
+  "@opam/ocaml-lsp-server": "ocaml/ocaml-lsp:ocaml-lsp-server.opam"
+ }
+}
