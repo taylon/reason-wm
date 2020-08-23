@@ -4,6 +4,7 @@
 
  (foreign_stubs
   (language c)
+  (flags -std=c99)
   (names xcb))
 
   (c_library_flags (-lxcb-icccm -lxcb-keysyms -lxcb)))

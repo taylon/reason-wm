@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <caml/alloc.h>
 #include <caml/memory.h>
+#include <caml/mlvalues.h>
 #include <caml/threads.h>
 
 #include <xcb/xcb.h>
@@ -51,19 +53,67 @@ xcb_generic_error_t *setup_substructure_redirection(void) {
   /* } */
 }
 
-CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
-  CAMLparam0();
-  CAMLlocal1(ret);
+void map_request(xcb_generic_event_t *generic_event) {
+  printf("map request\n");
 
-  switch (event->response_type) {
-  case XCB_CONFIGURE_REQUEST:
-    ret = Val_int(0);
-    break;
-  case XCB_MAP_REQUEST:
-    ret = Val_int(1);
+  xcb_map_request_event_t *event = (xcb_map_request_event_t *)generic_event;
+
+  xcb_map_window(conn, event->window);
+}
+
+void configure_request(xcb_generic_event_t *generic_event) {
+  printf("configure request\n");
+
+  xcb_configure_request_event_t *event =
+      (xcb_configure_request_event_t *)generic_event;
+
+  xcb_screen_t *screen = root_screen();
+
+  uint16_t screen_w = screen->width_in_pixels;
+  uint16_t screen_h = screen->height_in_pixels;
+
+  unsigned int values[4] = {0, 0, screen_w, screen_h};
+  xcb_configure_window(conn, event->window,
+                       XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT |
+                           XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y,
+                       values);
+}
+
+// TODO: Maybe consider declaring values in a different file?
+#define Val_none Val_int(0)
+
+static value Val_some(value v) {
+  CAMLparam1(v);
+  CAMLlocal1(some);
+
+  some = caml_alloc(1, 0);
+  Store_field(some, 0, v);
+
+  CAMLreturn(some);
+}
+
+CAMLprim value Val_xcb_event(xcb_generic_event_t *generic_event) {
+  CAMLparam0();
+  CAMLlocal2(ret, event);
+
+  switch (generic_event->response_type) {
+  case XCB_MAP_REQUEST:;
+    // cast generic event to the proper event
+    xcb_map_request_event_t *map_event =
+        (xcb_map_request_event_t *)generic_event;
+
+    // create the Some(MapRequest(mapRequest)) event data
+    event = caml_alloc(1, 0);
+    Store_field(event, 0, Val_some(Val_int(map_event->window)));
+
+    // alloc the event data to the return value
+    ret = caml_alloc(1, 0);
+    Store_field(ret, 0, event);
+
     break;
   default:
-    ret = Val_int(2);
+    // TODO: This must be something else, not sure what yet
+    ret = Val_none;
   }
 
   CAMLreturn(ret);
@@ -132,31 +182,6 @@ CAMLprim value rexcb_init(void) {
   init();
 
   CAMLreturn(Val_unit);
-}
-
-void map_request(xcb_generic_event_t *generic_event) {
-  printf("map request\n");
-
-  xcb_map_request_event_t *event = (xcb_map_request_event_t *)generic_event;
-
-  xcb_map_window(conn, event->window);
-}
-
-void configure_request(xcb_generic_event_t *generic_event) {
-  printf("configure request\n");
-
-  xcb_configure_request_event_t *event =
-      (xcb_configure_request_event_t *)generic_event;
-
-  xcb_screen_t *screen = root_screen();
-  uint16_t screen_w = screen->width_in_pixels;
-  uint16_t screen_h = screen->height_in_pixels;
-
-  unsigned int values[4] = {0, 0, screen_w, screen_h};
-  xcb_configure_window(conn, event->window,
-                       XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT |
-                           XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y,
-                       values);
 }
 
 /* static void (*event_handlers[XCB_NO_OPERATION])(xcb_generic_event_t *) = { */
