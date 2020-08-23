@@ -1,1 +1,3 @@
-external openWindow: unit => unit = "rexcb_open_window";
+external init: unit => unit = "rexcb_init";
+
+external waitForEvent: unit => int = "rexcb_wait_for_event";

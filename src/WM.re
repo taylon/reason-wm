@@ -5,4 +5,7 @@ module Log = (val Timber.Log.withNamespace("WM"));
 
 Log.debug("Starting...");
 
-XCB.openWindow();
+XCB.init();
+let event = XCB.waitForEvent();
+
+Log.debugf(m => m("Event: %i", event));
