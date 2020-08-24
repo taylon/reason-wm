@@ -1,12 +1,15 @@
 external init: unit => unit = "rexcb_init";
 
-type window = int;
+type windowID = int;
+
+external mapWindow: windowID => unit = "rexcb_map_window";
 
 module Event = {
-  type mapRequest = {window};
+  type mapRequest = {windowID};
 
   type t =
-    | MapRequest(mapRequest);
+    | Unknown(int) // 0
+    | MapRequest(mapRequest); // 1
 };
 
 // TODO: replace option with result once we know what we doing

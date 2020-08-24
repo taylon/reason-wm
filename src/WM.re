@@ -1,17 +1,17 @@
 Timber.App.enable();
-Timber.App.setLevel(Timber.Level.debug);
+Timber.App.setLevel(Timber.Level.trace);
 
 module Log = (val Timber.Log.withNamespace("WM"));
 
 Log.debug("Starting...");
 
-XCB.init();
-let event = XCB.waitForEvent();
-
 let handleEvent = event =>
   switch (event) {
-  | XCB.Event.MapRequest(data) =>
-    Log.debugf(m => m("Window ID: %i", data.window))
+  | XCB.Event.MapRequest({windowID}) =>
+    XCB.mapWindow(windowID);
+    Log.tracef(m => m("X11 Event - MapRequest for: %i", windowID));
+
+  | XCB.Event.Unknown(id) => Log.tracef(m => m("X11 Event - Unknown: %i", id))
   };
 
 let runEventLoop = () => {
@@ -25,4 +25,5 @@ let runEventLoop = () => {
   };
 };
 
+XCB.init();
 runEventLoop();

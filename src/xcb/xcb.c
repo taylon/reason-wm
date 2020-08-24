@@ -53,32 +53,6 @@ xcb_generic_error_t *setup_substructure_redirection(void) {
   /* } */
 }
 
-void map_request(xcb_generic_event_t *generic_event) {
-  printf("map request\n");
-
-  xcb_map_request_event_t *event = (xcb_map_request_event_t *)generic_event;
-
-  xcb_map_window(conn, event->window);
-}
-
-void configure_request(xcb_generic_event_t *generic_event) {
-  printf("configure request\n");
-
-  xcb_configure_request_event_t *event =
-      (xcb_configure_request_event_t *)generic_event;
-
-  xcb_screen_t *screen = root_screen();
-
-  uint16_t screen_w = screen->width_in_pixels;
-  uint16_t screen_h = screen->height_in_pixels;
-
-  unsigned int values[4] = {0, 0, screen_w, screen_h};
-  xcb_configure_window(conn, event->window,
-                       XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT |
-                           XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y,
-                       values);
-}
-
 // TODO: Maybe consider declaring values in a different file?
 #define Val_none Val_int(0)
 
@@ -96,24 +70,29 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *generic_event) {
   CAMLparam0();
   CAMLlocal2(ret, event);
 
-  switch (generic_event->response_type) {
+  // t in `ret = caml_alloc(n, t)` must map to the correct variant in
+  // XCB.Event.t
+  //
+  // https://caml.inria.fr/pub/docs/manual-ocaml/intfc.html#ss:c-block-allocation
+  switch (generic_event->response_type & ~0x80) {
   case XCB_MAP_REQUEST:;
     // cast generic event to the proper event
     xcb_map_request_event_t *map_event =
         (xcb_map_request_event_t *)generic_event;
 
-    // create the Some(MapRequest(mapRequest)) event data
+    // alloc mapRequest
     event = caml_alloc(1, 0);
-    Store_field(event, 0, Val_some(Val_int(map_event->window)));
+    Store_field(event, 0, Val_int(map_event->window)); // windowID
 
-    // alloc the event data to the return value
-    ret = caml_alloc(1, 0);
+    // alloc MapRequest(mapRequest)
+    ret = caml_alloc(1, 1);
     Store_field(ret, 0, event);
 
     break;
   default:
-    // TODO: This must be something else, not sure what yet
-    ret = Val_none;
+    // alloc Unknown(id)
+    ret = caml_alloc(1, 0);
+    Store_field(ret, 0, Val_int(generic_event->response_type & ~0x80)); // id
   }
 
   CAMLreturn(ret);
@@ -127,31 +106,19 @@ CAMLprim value rexcb_wait_for_event(void) {
   xcb_generic_event_t *event = xcb_wait_for_event(conn);
   caml_acquire_runtime_system();
 
-  ret = Val_xcb_event(event);
+  ret = Val_some(Val_xcb_event(event));
 
   CAMLreturn(ret);
 }
 
-/* typedef void (*event_handler_t)(xcb_generic_event_t *); */
+CAMLprim value rexcb_map_window(value vWindowID) {
+  CAMLparam1(vWindowID);
 
-/* void run_event_loop(event_handler_t event_handler) { */
-/*   for (;;) { */
-/*     if (xcb_connection_has_error(conn)) { */
-/*       printf("connection error: we are currently not handling errors so " */
-/*              "check " */
-/*              "the xcb binding code!\n"); */
-/*     } */
-/*  */
-/*     xcb_generic_event_t *event; */
-/*     if ((event = xcb_wait_for_event(conn))) { */
-/*       event_handler(event); */
-/*  */
-/*       xcb_flush(conn); */
-/*     } */
-/*  */
-/*     free(event); */
-/*   } */
-/* } */
+  xcb_map_window(conn, Int_val(vWindowID));
+  xcb_flush(conn);
+
+  CAMLreturn(Val_unit);
+}
 
 xcb_generic_error_t *init(void) {
   conn = xcb_connect(NULL, NULL);
@@ -184,6 +151,54 @@ CAMLprim value rexcb_init(void) {
   CAMLreturn(Val_unit);
 }
 
+/* void map_request(xcb_generic_event_t *generic_event) { */
+/*   printf("map request\n"); */
+/*  */
+/*   xcb_map_request_event_t *event = (xcb_map_request_event_t *)generic_event;
+ */
+/*  */
+/*   xcb_map_window(conn, event->window); */
+/* } */
+/*  */
+/* void configure_request(xcb_generic_event_t *generic_event) { */
+/*   printf("configure request\n"); */
+/*  */
+/*   xcb_configure_request_event_t *event = */
+/*       (xcb_configure_request_event_t *)generic_event; */
+/*  */
+/*   xcb_screen_t *screen = root_screen(); */
+/*  */
+/*   uint16_t screen_w = screen->width_in_pixels; */
+/*   uint16_t screen_h = screen->height_in_pixels; */
+/*  */
+/*   unsigned int values[4] = {0, 0, screen_w, screen_h}; */
+/*   xcb_configure_window(conn, event->window, */
+/*                        XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT |
+ */
+/*                            XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, */
+/*                        values); */
+/* } */
+/* typedef void (*event_handler_t)(xcb_generic_event_t *); */
+
+/* void run_event_loop(event_handler_t event_handler) { */
+/*   for (;;) { */
+/*     if (xcb_connection_has_error(conn)) { */
+/*       printf("connection error: we are currently not handling errors so " */
+/*              "check " */
+/*              "the xcb binding code!\n"); */
+/*     } */
+/*  */
+/*     xcb_generic_event_t *event; */
+/*     if ((event = xcb_wait_for_event(conn))) { */
+/*       event_handler(event); */
+/*  */
+/*       xcb_flush(conn); */
+/*     } */
+/*  */
+/*     free(event); */
+/*   } */
+/* } */
+
 /* static void (*event_handlers[XCB_NO_OPERATION])(xcb_generic_event_t *) = { */
 /*     [XCB_CONFIGURE_REQUEST] = configure_request, */
 /*     [XCB_MAP_REQUEST] = map_request, */
@@ -200,13 +215,4 @@ CAMLprim value rexcb_init(void) {
 /*  */
 /*   printf("Running!\n"); */
 /*   run_event_loop(handle_event); */
-/* } */
-
-/* CAMLprim value rexcb_init() { */
-/*   CAMLparam0(); */
-/*  */
-/*   init(); */
-/*   sleep(1); */
-/*  */
-/*   CAMLreturn(Val_unit); */
 /* } */
