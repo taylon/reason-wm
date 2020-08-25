@@ -5,7 +5,21 @@ module Log = (val Timber.Log.withNamespace("WM"));
 
 Log.debug("Starting...");
 
-let handleEvent = event =>
+let keepRunning = ref(true);
+
+let exitWM = () => {
+  Log.trace("Exiting the window manager...");
+
+  XCB.disconnect();
+  exit(1);
+};
+
+let exitSignalHandler = Sys.Signal_handle(signal => exitWM());
+
+Sys.set_signal(Sys.sigint, exitSignalHandler);
+Sys.set_signal(Sys.sigterm, exitSignalHandler);
+
+let eventHandler = event =>
   switch (event) {
   | XCB.Event.MapRequest({windowID}) =>
     XCB.mapWindow(windowID);
@@ -14,16 +28,5 @@ let handleEvent = event =>
   | XCB.Event.Unknown(id) => Log.tracef(m => m("X11 Event - Unknown: %i", id))
   };
 
-let runEventLoop = () => {
-  let processingEvents = ref(true);
-
-  while (processingEvents^) {
-    switch (XCB.waitForEvent()) {
-    | None => Log.debug("No event!!")
-    | Some(event) => handleEvent(event)
-    };
-  };
-};
-
 XCB.init();
-runEventLoop();
+XCB.runEventLoop(keepRunning, eventHandler);

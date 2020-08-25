@@ -66,6 +66,22 @@ static value Val_some(value v) {
   CAMLreturn(some);
 }
 
+static value Val_ok(value v) {
+  CAMLparam1(v);
+  CAMLlocal1(some);
+  some = caml_alloc(1, 0);
+  Store_field(some, 0, v);
+  CAMLreturn(some);
+}
+
+static value Val_error(value v) {
+  CAMLparam1(v);
+  CAMLlocal1(some);
+  some = caml_alloc(1, 1);
+  Store_field(some, 0, v);
+  CAMLreturn(some);
+}
+
 CAMLprim value Val_xcb_event(xcb_generic_event_t *generic_event) {
   CAMLparam0();
   CAMLlocal2(ret, event);
@@ -108,6 +124,8 @@ CAMLprim value rexcb_wait_for_event(void) {
 
   ret = Val_some(Val_xcb_event(event));
 
+  free(event);
+
   CAMLreturn(ret);
 }
 
@@ -116,6 +134,14 @@ CAMLprim value rexcb_map_window(value vWindowID) {
 
   xcb_map_window(conn, Int_val(vWindowID));
   xcb_flush(conn);
+
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value rexcb_disconnect() {
+  CAMLparam0();
+
+  xcb_disconnect(conn);
 
   CAMLreturn(Val_unit);
 }
@@ -150,69 +176,3 @@ CAMLprim value rexcb_init(void) {
 
   CAMLreturn(Val_unit);
 }
-
-/* void map_request(xcb_generic_event_t *generic_event) { */
-/*   printf("map request\n"); */
-/*  */
-/*   xcb_map_request_event_t *event = (xcb_map_request_event_t *)generic_event;
- */
-/*  */
-/*   xcb_map_window(conn, event->window); */
-/* } */
-/*  */
-/* void configure_request(xcb_generic_event_t *generic_event) { */
-/*   printf("configure request\n"); */
-/*  */
-/*   xcb_configure_request_event_t *event = */
-/*       (xcb_configure_request_event_t *)generic_event; */
-/*  */
-/*   xcb_screen_t *screen = root_screen(); */
-/*  */
-/*   uint16_t screen_w = screen->width_in_pixels; */
-/*   uint16_t screen_h = screen->height_in_pixels; */
-/*  */
-/*   unsigned int values[4] = {0, 0, screen_w, screen_h}; */
-/*   xcb_configure_window(conn, event->window, */
-/*                        XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT |
- */
-/*                            XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, */
-/*                        values); */
-/* } */
-/* typedef void (*event_handler_t)(xcb_generic_event_t *); */
-
-/* void run_event_loop(event_handler_t event_handler) { */
-/*   for (;;) { */
-/*     if (xcb_connection_has_error(conn)) { */
-/*       printf("connection error: we are currently not handling errors so " */
-/*              "check " */
-/*              "the xcb binding code!\n"); */
-/*     } */
-/*  */
-/*     xcb_generic_event_t *event; */
-/*     if ((event = xcb_wait_for_event(conn))) { */
-/*       event_handler(event); */
-/*  */
-/*       xcb_flush(conn); */
-/*     } */
-/*  */
-/*     free(event); */
-/*   } */
-/* } */
-
-/* static void (*event_handlers[XCB_NO_OPERATION])(xcb_generic_event_t *) = { */
-/*     [XCB_CONFIGURE_REQUEST] = configure_request, */
-/*     [XCB_MAP_REQUEST] = map_request, */
-/* }; */
-/*  */
-/* void handle_event(xcb_generic_event_t *event) { */
-/*   if (event_handlers[event->response_type & ~0x80]) { */
-/*     event_handlers[event->response_type & ~0x80](event); */
-/*   } */
-/* } */
-
-/* int main() { */
-/*   init(); */
-/*  */
-/*   printf("Running!\n"); */
-/*   run_event_loop(handle_event); */
-/* } */
