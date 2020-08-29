@@ -10,7 +10,7 @@ let exitWM = () => {
   Log.trace("Exiting the window manager...");
 
   XCB.disconnect();
-  exit(1);
+  exit(0);
 };
 
 let exitSignalHandler = Sys.Signal_handle(signal => exitWM());

@@ -1,0 +1,16 @@
+{
+  "source": "./package.json",
+  "scripts": {
+    "run": "esy '@e2etest' x E2ETest #{wm.bin}"
+  },
+  "override": {
+    "build": [
+      "refmterr dune build -p xcb,E2ETest,WM"
+    ],
+    "install": [
+      "esy-installer xcb.install",
+      "esy-installer WM.install",
+      "esy-installer E2ETest.install"
+    ]
+  }
+}

@@ -1,8 +1,0 @@
-lib: [
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/WM/META"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/WM/dune-package"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/WM/opam"
-]
-bin: [
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/bin/WM"
-]

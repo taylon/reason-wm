@@ -1,0 +1,6 @@
+(executable
+  (name E2ETest)
+  (package E2ETest)
+  (public_name E2ETest)
+  (libraries timber))
+
