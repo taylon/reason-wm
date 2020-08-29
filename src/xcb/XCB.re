@@ -3,16 +3,21 @@ module Log = (val Timber.Log.withNamespace("XCB"));
 external init: unit => unit = "rexcb_init";
 external disconnect: unit => unit = "rexcb_disconnect";
 
-type windowID = int;
+module Window = {
+  type t = int;
 
-external mapWindow: windowID => unit = "rexcb_map_window";
+  external show: t => unit = "rexcb_map_window";
+
+  external resize: (t, ~height: int, ~width: int) => unit =
+    "rexcb_resize_window";
+
+  external move: (t, ~x: int, ~y: int) => unit = "rexcb_move_window";
+};
 
 module Event = {
-  type mapRequest = {windowID};
-
   type t =
     | Unknown(int) // 0
-    | MapRequest(mapRequest); // 1
+    | MapRequest(Window.t); // 1
 };
 
 // TODO: replace option with result once we know what we doing

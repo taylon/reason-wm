@@ -77,7 +77,7 @@ static value Val_ok(value v) {
   CAMLreturn(some);
 }
 
-static value Val_error(const char *message) {
+static value Val_error(char *const message) {
   CAMLparam0();
   CAMLlocal1(error);
 
@@ -101,13 +101,9 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *generic_event) {
     xcb_map_request_event_t *map_event =
         (xcb_map_request_event_t *)generic_event;
 
-    // alloc mapRequest
-    event = caml_alloc(1, 0);
-    Store_field(event, 0, Val_int(map_event->window)); // windowID
-
-    // alloc MapRequest(mapRequest)
+    // alloc MapRequest(window)
     ret = caml_alloc(1, 1);
-    Store_field(ret, 0, event);
+    Store_field(ret, 0, Val_int(map_event->window));
 
     break;
   default:
@@ -117,6 +113,29 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *generic_event) {
   }
 
   CAMLreturn(ret);
+}
+
+CAMLprim value rexcb_resize_window(value window_id, value height, value width) {
+  CAMLparam3(window_id, height, width);
+
+  const uint32_t values[] = {Int_val(width), Int_val(height)};
+  xcb_configure_window(conn, Int_val(window_id),
+                       XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,
+                       values);
+  xcb_flush(conn);
+
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value rexcb_move_window(value window_id, value x, value y) {
+  CAMLparam3(window_id, x, y);
+
+  const uint32_t values[] = {Int_val(x), Int_val(y)};
+  xcb_configure_window(conn, Int_val(window_id),
+                       XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
+  xcb_flush(conn);
+
+  CAMLreturn(Val_unit);
 }
 
 CAMLprim value rexcb_wait_for_event(void) {
@@ -134,16 +153,16 @@ CAMLprim value rexcb_wait_for_event(void) {
   CAMLreturn(ret);
 }
 
-CAMLprim value rexcb_map_window(value vWindowID) {
-  CAMLparam1(vWindowID);
+CAMLprim value rexcb_map_window(value window_id) {
+  CAMLparam1(window_id);
 
-  xcb_map_window(conn, Int_val(vWindowID));
+  xcb_map_window(conn, Int_val(window_id));
   xcb_flush(conn);
 
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value rexcb_disconnect() {
+CAMLprim value rexcb_disconnect(void) {
   CAMLparam0();
 
   xcb_disconnect(conn);
