@@ -122,7 +122,6 @@ CAMLprim value rexcb_resize_window(value window_id, value height, value width) {
   xcb_configure_window(conn, Int_val(window_id),
                        XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,
                        values);
-  xcb_flush(conn);
 
   CAMLreturn(Val_unit);
 }
@@ -133,7 +132,6 @@ CAMLprim value rexcb_move_window(value window_id, value x, value y) {
   const uint32_t values[] = {Int_val(x), Int_val(y)};
   xcb_configure_window(conn, Int_val(window_id),
                        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
-  xcb_flush(conn);
 
   CAMLreturn(Val_unit);
 }
