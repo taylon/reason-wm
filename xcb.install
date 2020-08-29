@@ -1,17 +1,17 @@
 lib: [
   "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/META"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/XCB.a"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/XCB.cma"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/XCB.cmxa"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/XCB.cmxs"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/XCB.re"
   "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/dune-package"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/libxcb_stubs.a"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/libXCB_stubs.a"
   "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/opam"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xcb.a"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xcb.cma"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xcb.cmi"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xcb.cmt"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xcb.cmx"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xcb.cmxa"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xcb.cmxs"
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xcb.ml"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xCB.cmi"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xCB.cmt"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/xcb/xCB.cmx"
 ]
 stublibs: [
-  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/stublibs/dllxcb_stubs.so"
+  "/home/taylon/Development/wm/reason/_esy/default/store/b/wm-da302299/install/default/lib/stublibs/dllXCB_stubs.so"
 ]

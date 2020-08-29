@@ -1,6 +1,7 @@
 (library
-  (name xcb)
+  (name XCB)
   (public_name xcb)
+  (libraries timber)
 
  (foreign_stubs
   (language c)

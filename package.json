@@ -12,7 +12,8 @@
   },
   "scripts": {
     "format": "bash -c \"refmt --in-place **/*.re\"",
-    "run": "esy x WM"
+    "run": "esy x WM",
+    "test": "bash tests/run.sh"
   },
   "dependencies": {
     "@esy-ocaml/reason": "^3.6.0",

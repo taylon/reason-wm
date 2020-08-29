@@ -18,13 +18,10 @@ module Event = {
 // TODO: replace option with result once we know what we doing
 external waitForEvent: unit => option(Event.t) = "rexcb_wait_for_event";
 
-let runEventLoop = (keepRunning: ref(bool), eventHandler) => {
-  while (keepRunning^) {
+let runEventLoop = eventHandler =>
+  while (true) {
     switch (waitForEvent()) {
     | None => Log.debug("No event!!")
     | Some(event) => eventHandler(event)
     };
   };
-
-  Log.trace("Exiting XCB event loop...");
-};

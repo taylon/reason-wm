@@ -5,8 +5,6 @@ module Log = (val Timber.Log.withNamespace("WM"));
 
 Log.debug("Starting...");
 
-let keepRunning = ref(true);
-
 let exitWM = () => {
   Log.trace("Exiting the window manager...");
 
@@ -29,4 +27,4 @@ let eventHandler = event =>
   };
 
 XCB.init();
-XCB.runEventLoop(keepRunning, eventHandler);
+XCB.runEventLoop(eventHandler);
