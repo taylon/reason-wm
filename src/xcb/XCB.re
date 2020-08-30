@@ -3,10 +3,17 @@ module Log = (val Timber.Log.withNamespace("XCB"));
 external init: unit => unit = "rexcb_init";
 external disconnect: unit => unit = "rexcb_disconnect";
 
+type screen = {
+  width: int,
+  height: int,
+};
+
+external rootScreen: unit => screen = "rexcb_root_screen";
+
 module Window = {
   type t = int;
 
-  external show: t => unit = "rexcb_map_window";
+  external show: t => unit = "rexcb_show_window";
 
   external resize: (t, ~height: int, ~width: int) => unit =
     "rexcb_resize_window";
@@ -20,13 +27,15 @@ module Event = {
     | MapRequest(Window.t); // 1
 };
 
-// TODO: replace option with result once we know what we doing
 external waitForEvent: unit => option(Event.t) = "rexcb_wait_for_event";
 
-let runEventLoop = eventHandler =>
+let runEventLoop = eventHandler => {
+  init();
+
   while (true) {
     switch (waitForEvent()) {
     | None => Log.debug("No event!!")
     | Some(event) => eventHandler(event)
     };
   };
+};

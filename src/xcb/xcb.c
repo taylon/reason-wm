@@ -8,6 +8,7 @@
 
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <xcb/xcb_event.h>
 
 // TODO: get rid of these, they don't need to be global...
 static xcb_connection_t *conn;
@@ -69,12 +70,12 @@ static value Val_some(value v) {
 
 static value Val_ok(value v) {
   CAMLparam1(v);
-  CAMLlocal1(some);
+  CAMLlocal1(ok);
 
-  some = caml_alloc(1, 0);
-  Store_field(some, 0, v);
+  ok = caml_alloc(1, 0);
+  Store_field(ok, 0, v);
 
-  CAMLreturn(some);
+  CAMLreturn(ok);
 }
 
 static value Val_error(char *const message) {
@@ -87,19 +88,20 @@ static value Val_error(char *const message) {
   CAMLreturn(error);
 }
 
-CAMLprim value Val_xcb_event(xcb_generic_event_t *generic_event) {
+// t in `ret = caml_alloc(n, t)` must map to the correct variant in
+// XCB.Event.t
+//
+// https://caml.inria.fr/pub/docs/manual-ocaml/intfc.html#ss:c-block-allocation
+CAMLprim value Val_xcb_event(xcb_generic_event_t * event) {
   CAMLparam0();
-  CAMLlocal2(ret, event);
+  CAMLlocal1(ret);
 
-  // t in `ret = caml_alloc(n, t)` must map to the correct variant in
-  // XCB.Event.t
-  //
-  // https://caml.inria.fr/pub/docs/manual-ocaml/intfc.html#ss:c-block-allocation
-  switch (generic_event->response_type & ~0x80) {
+	uint8_t event_response_type = XCB_EVENT_RESPONSE_TYPE(event);
+  switch (event_response_type) {
   case XCB_MAP_REQUEST:;
     // cast generic event to the proper event
     xcb_map_request_event_t *map_event =
-        (xcb_map_request_event_t *)generic_event;
+        (xcb_map_request_event_t *)event;
 
     // alloc MapRequest(window)
     ret = caml_alloc(1, 1);
@@ -109,8 +111,22 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *generic_event) {
   default:
     // alloc Unknown(id)
     ret = caml_alloc(1, 0);
-    Store_field(ret, 0, Val_int(generic_event->response_type & ~0x80)); // id
+    Store_field(ret, 0, Val_int(event_response_type)); // id
   }
+
+  CAMLreturn(ret);
+}
+
+CAMLprim value rexcb_root_screen(void) {
+  CAMLparam0();
+  CAMLlocal1(ret);
+
+  xcb_screen_t *screen = root_screen();
+
+  // alloc screen = { width: int, height: int }
+  ret = caml_alloc(2, 0);
+  Store_field(ret, 0, Val_int(screen->width_in_pixels));
+  Store_field(ret, 1, Val_int(screen->height_in_pixels));
 
   CAMLreturn(ret);
 }
@@ -151,7 +167,8 @@ CAMLprim value rexcb_wait_for_event(void) {
   CAMLreturn(ret);
 }
 
-CAMLprim value rexcb_map_window(value window_id) {
+// TODO: Respect override_redirect
+CAMLprim value rexcb_show_window(value window_id) {
   CAMLparam1(window_id);
 
   xcb_map_window(conn, Int_val(window_id));

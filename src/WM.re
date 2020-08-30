@@ -18,17 +18,41 @@ Sys.set_signal(Sys.sigint, exitSignalHandler);
 Sys.set_signal(Sys.sigterm, exitSignalHandler);
 // ---------
 
+let openedWindows = ref([]);
+let registerWindow = window => openedWindows := [window, ...openedWindows^];
+
+let reArrangeWindows = () => {
+  open XCB;
+
+  let numberOfWindowsOpen = List.length(openedWindows^);
+  let windowWidth = rootScreen().width / numberOfWindowsOpen;
+  let xPosition = index => index == 0 ? 0 : windowWidth * index;
+
+  List.iteri(
+    (index, window) => {
+      Window.resize(window, ~width=windowWidth, ~height=rootScreen().height);
+
+      Window.move(window, ~x=xPosition(index), ~y=0);
+    },
+    openedWindows^,
+  );
+};
+// ---------
+
 let eventHandler = event =>
-  switch (event) {
-  | XCB.Event.MapRequest(window) =>
-    XCB.Window.resize(window, ~height=300, ~width=400);
-    XCB.Window.move(window, ~x=400, ~y=300);
-    XCB.Window.show(window);
+  XCB.(
+    switch (event) {
+    | Event.MapRequest(window) =>
+      registerWindow(window);
+      reArrangeWindows();
 
-    Log.tracef(m => m("X11 Event - MapRequest for: %i", window));
+      Window.show(window);
 
-  | XCB.Event.Unknown(id) => Log.tracef(m => m("X11 Event - Unknown: %i", id))
-  };
+      Log.tracef(m => m("X11 Event - MapRequest for: %i", window));
 
-XCB.init();
+    /* | Event.Unknown(id) => Log.tracef(m => m("X11 Event - Unknown: %i", id)) */
+    | Event.Unknown(id) => ()
+    }
+  );
+
 XCB.runEventLoop(eventHandler);

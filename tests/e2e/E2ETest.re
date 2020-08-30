@@ -10,7 +10,7 @@ let displayID = ":1";
 
 // --------
 let xephyrPID =
-  runCommand("Xephyr", [|"-ac", "-screen", "800x600", displayID|]);
+  runCommand("Xephyr", [|"-ac", "-screen", "1700x1080", displayID|]);
 
 // Just to make sure Xephyr is available before we do anything else
 Unix.sleepf(0.5);
@@ -21,13 +21,18 @@ Unix.sleepf(0.5);
 Unix.putenv("DISPLAY", displayID);
 
 let wmPID = runCommand(Sys.argv[1] ++ "/WM", [||]);
-Unix.sleepf(0.1);
+Unix.sleepf(1.5);
 
 let kittyPID = runCommand("kitty", [||]);
+let kitty2PID = runCommand("kitty", [||]);
+let kitty3PID = runCommand("kitty", [||]);
 
-Unix.sleep(2);
+Unix.sleep(1);
 
 Unix.kill(wmPID, Sys.sigterm);
 Unix.kill(kittyPID, Sys.sigterm);
-Unix.sleepf(0.2);
+Unix.kill(kitty2PID, Sys.sigterm);
+Unix.kill(kitty3PID, Sys.sigterm);
+
+Unix.sleepf(0.5);
 Unix.kill(xephyrPID, Sys.sigterm);
