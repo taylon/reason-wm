@@ -24,13 +24,15 @@ let registerWindow = window => openedWindows := [window, ...openedWindows^];
 let reArrangeWindows = () => {
   open XCB;
 
+  let rootScreen = XCB.rootScreen();
+
   let numberOfWindowsOpen = List.length(openedWindows^);
-  let windowWidth = rootScreen().width / numberOfWindowsOpen;
+  let windowWidth = rootScreen.width / numberOfWindowsOpen;
   let xPosition = index => index == 0 ? 0 : windowWidth * index;
 
   List.iteri(
     (index, window) => {
-      Window.resize(window, ~width=windowWidth, ~height=rootScreen().height);
+      Window.resize(window, ~width=windowWidth, ~height=rootScreen.height);
 
       Window.move(window, ~x=xPosition(index), ~y=0);
     },
@@ -55,4 +57,14 @@ let eventHandler = event =>
     }
   );
 
-XCB.runEventLoop(eventHandler);
+let start = () => {
+  switch (XCB.init()) {
+  | Ok(_) => Log.trace("Connection with X11 was established")
+  | Error(message) =>
+    Log.errorf(m => m("Unable to establish connection with X11: %s", message))
+  };
+
+  XCB.runEventLoop(eventHandler);
+};
+
+start();

@@ -1,6 +1,6 @@
 module Log = (val Timber.Log.withNamespace("XCB"));
 
-external init: unit => unit = "rexcb_init";
+external init: unit => result(unit, string) = "rexcb_init";
 external disconnect: unit => unit = "rexcb_disconnect";
 
 type screen = {
@@ -25,17 +25,14 @@ module Event = {
   type t =
     | Unknown(int) // 0
     | MapRequest(Window.t); // 1
+
+  external wait: unit => option(t) = "rexcb_wait_for_event";
 };
 
-external waitForEvent: unit => option(Event.t) = "rexcb_wait_for_event";
-
-let runEventLoop = eventHandler => {
-  init();
-
+let runEventLoop = eventHandler =>
   while (true) {
-    switch (waitForEvent()) {
+    switch (Event.wait()) {
     | None => Log.debug("No event!!")
     | Some(event) => eventHandler(event)
     };
   };
-};
