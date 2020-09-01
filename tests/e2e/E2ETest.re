@@ -20,19 +20,34 @@ Unix.sleepf(0.5);
 // everything to the same display used by Xephyr
 Unix.putenv("DISPLAY", displayID);
 
+// -------------
 let wmPID = runCommand(Sys.argv[1] ++ "/WM", [||]);
 Unix.sleepf(1.5);
 
 let kittyPID = runCommand("kitty", [||]);
-let kitty2PID = runCommand("kitty", [||]);
-let kitty3PID = runCommand("kitty", [||]);
+let xtermPID = runCommand("xterm", [||]);
+let kitty3PID = runCommand("pavucontrol", [||]);
 
-Unix.sleep(1);
+Unix.sleep(2);
 
 Unix.kill(wmPID, Sys.sigterm);
 Unix.kill(kittyPID, Sys.sigterm);
-Unix.kill(kitty2PID, Sys.sigterm);
+Unix.kill(xtermPID, Sys.sigterm);
 Unix.kill(kitty3PID, Sys.sigterm);
 
 Unix.sleepf(0.5);
 Unix.kill(xephyrPID, Sys.sigterm);
+// -------------
+
+/* let wmPID = runCommand(Sys.argv[1] ++ "/WM", [||]); */
+/* Unix.sleepf(1.5); */
+/*  */
+/* let xtermPID = runCommand("xterm", [||]); */
+/*  */
+/* Unix.sleep(2); */
+/*  */
+/* Unix.kill(wmPID, Sys.sigterm); */
+/* Unix.kill(xtermPID, Sys.sigterm); */
+/*  */
+/* Unix.sleepf(0.5); */
+/* Unix.kill(xephyrPID, Sys.sigterm); */

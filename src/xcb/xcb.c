@@ -150,12 +150,46 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
     Store_field(ret, 0, Val_int(map_event->window));
 
     break;
+  case XCB_CONFIGURE_REQUEST:;
+    xcb_configure_request_event_t *configure_event =
+        (xcb_configure_request_event_t *)event;
+
+    // So far from what we could see, some applications (xterm as an example)
+    // trigger CONFIGURE_REQUEST and then only trigger MAP_REQUEST immediately
+    // if we call xcb_configure_window and xcb_flush here. If we don't call
+    // those the MAP_REQUEST take forever to trigger, regardless of
+    // whether or not we call xcb_flush
+    const uint32_t values[2] = {configure_event->width,
+                                configure_event->height};
+    xcb_configure_window(conn, configure_event->window,
+                         XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,
+                         values);
+    xcb_flush(conn);
+
+    // alloc Unknown(id)
+    ret = caml_alloc(1, 0);
+    Store_field(ret, 0, Val_int(event_response_type)); // id
+    break;
   default:
     // alloc Unknown(id)
     ret = caml_alloc(1, 0);
     Store_field(ret, 0, Val_int(event_response_type)); // id
   }
 
+  CAMLreturn(ret);
+}
+
+CAMLprim value rexcb_wait_for_event(void) {
+  CAMLparam0();
+  CAMLlocal1(ret);
+
+  caml_release_runtime_system();
+  xcb_generic_event_t *event = xcb_wait_for_event(conn);
+  caml_acquire_runtime_system();
+
+  ret = Val_some(Val_xcb_event(event));
+
+  free(event);
   CAMLreturn(ret);
 }
 
@@ -190,21 +224,6 @@ CAMLprim value rexcb_move_window(value window_id, value x, value y) {
                        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
 
   CAMLreturn(Val_unit);
-}
-
-CAMLprim value rexcb_wait_for_event(void) {
-  CAMLparam0();
-  CAMLlocal1(ret);
-
-  caml_release_runtime_system();
-  xcb_generic_event_t *event = xcb_wait_for_event(conn);
-  caml_acquire_runtime_system();
-
-  ret = Val_some(Val_xcb_event(event));
-
-  free(event);
-
-  CAMLreturn(ret);
 }
 
 // TODO: Respect override_redirect

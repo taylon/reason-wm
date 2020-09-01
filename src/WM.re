@@ -5,7 +5,7 @@ module Log = (val Timber.Log.withNamespace("WM"));
 
 Log.debug("Starting...");
 
-// ---------
+// Signal Handling ---------
 let exitWM = () => {
   Log.trace("Exiting the window manager...");
 
@@ -18,6 +18,7 @@ Sys.set_signal(Sys.sigint, exitSignalHandler);
 Sys.set_signal(Sys.sigterm, exitSignalHandler);
 // ---------
 
+// Window management stuff ---------
 let openedWindows = ref([]);
 let registerWindow = window => openedWindows := [window, ...openedWindows^];
 
@@ -41,6 +42,7 @@ let reArrangeWindows = () => {
 };
 // ---------
 
+// ---------
 let eventHandler = event =>
   XCB.(
     switch (event) {
@@ -59,9 +61,13 @@ let eventHandler = event =>
 
 let start = () => {
   switch (XCB.init()) {
-  | Ok(_) => Log.trace("Connection with X11 was established")
+  | Ok(_) => Log.debug("Connection with X11 was established")
   | Error(message) =>
-    Log.errorf(m => m("Unable to establish connection with X11: %s", message))
+    Log.errorf(m =>
+      m("Unable to establish connection with X11: %s", message)
+    );
+
+    exitWM();
   };
 
   XCB.runEventLoop(eventHandler);
