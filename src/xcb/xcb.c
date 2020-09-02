@@ -6,29 +6,45 @@
 #include <caml/mlvalues.h>
 #include <caml/threads.h>
 
+#include <X11/keysym.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_event.h>
+#include <xcb/xcb_keysyms.h>
 #include <xcb/xproto.h>
 
 static xcb_connection_t *conn;
 static xcb_screen_t *root_screen;
 static xcb_window_t root_window;
 
-void grab_mouse_buttons(void) {
-  xcb_grab_button(conn, 0, root_window,
-                  XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
-                  XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, root_window,
-                  XCB_NONE, 1 /* left  button */, XCB_MOD_MASK_1);
+typedef struct Key {
+  xcb_mod_mask_t mod;
+  xcb_keycode_t keycode;
+} Key;
 
-  xcb_grab_button(conn, 0, root_window,
-                  XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
-                  XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, root_window,
-                  XCB_NONE, 2 /* middle  button */, XCB_MOD_MASK_1);
+static Key keys[3] = {
+    {.mod = XCB_MOD_MASK_CONTROL | XCB_MOD_MASK_1, .keycode = XK_q}};
 
-  xcb_grab_button(conn, 0, root_window,
-                  XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
-                  XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, root_window,
-                  XCB_NONE, 3 /* right  button */, XCB_MOD_MASK_1);
+void grab_keys(void) {
+  xcb_key_symbols_t *keysyms = xcb_key_symbols_alloc(conn);
+
+  for (int i = 0; i < sizeof(keys) / sizeof(Key); i++) {
+    // We only use the first keysymbol, even if there are more.
+    xcb_keycode_t *keycode =
+        xcb_key_symbols_get_keycode(keysyms, keys[i].keycode);
+
+    // Not doing error handling here because I'm pretty sure
+    // that this way of grabbing keys won't for too long, when we get
+    // to the point where we care about handling this error  the
+    // method for grabbing keys will have changed
+    if (keycode != NULL) {
+      xcb_grab_key(conn, 1, root_window, keys[i].mod, *keycode,
+                   XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    }
+
+    free(keycode);
+  }
+
+  xcb_key_symbols_free(keysyms);
 }
 
 // By registering for substructure redirection we are basically telling
@@ -40,6 +56,8 @@ xcb_generic_error_t *setup_event_mask(void) {
 
   xcb_void_cookie_t cookie = xcb_change_window_attributes_checked(
       conn, root_window, XCB_CW_EVENT_MASK, mask);
+
+  grab_keys();
 
   return xcb_request_check(conn, cookie);
 }
@@ -85,8 +103,7 @@ char *init(void) {
   root_screen = xcb_setup_roots_iterator(xcb_get_setup(conn)).data;
   root_window = root_screen->root;
 
-  grab_mouse_buttons();
-
+  // TODO: need to return the X11 error code here somehow
   xcb_generic_error_t *error = setup_event_mask();
   if (error != NULL) {
     free(error);
@@ -100,6 +117,7 @@ char *init(void) {
 
 // TODO: Maybe consider moving the OCaml stuff to a different file?
 #define Val_none Val_int(0)
+#define Val_empty_list Val_int(0)
 
 static value Val_some(value v) {
   CAMLparam1(v);
@@ -137,9 +155,10 @@ static value Val_error(char *const message) {
 // https://caml.inria.fr/pub/docs/manual-ocaml/intfc.html#ss:c-block-allocation
 CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
   CAMLparam0();
-  CAMLlocal1(ret);
+  CAMLlocal3(ret, extra_value, extra_value1);
 
   uint8_t event_response_type = XCB_EVENT_RESPONSE_TYPE(event);
+
   switch (event_response_type) {
   case XCB_MAP_REQUEST:;
     // cast generic event to the proper event
@@ -148,6 +167,35 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
     // alloc MapRequest(window)
     ret = caml_alloc(1, 1);
     Store_field(ret, 0, Val_int(map_event->window));
+
+    break;
+  case XCB_KEY_PRESS:;
+    xcb_key_press_event_t *key_press_event = (xcb_key_press_event_t *)event;
+
+    // alloc list(Keyboard.modifier)
+    switch (key_press_event->state) {
+    case XCB_MOD_MASK_CONTROL | XCB_MOD_MASK_1:
+      // [Mask_1]
+      extra_value1 = caml_alloc(2, 0);
+      Store_field(extra_value1, 0, Val_int(3)); // Mask_1 (Alt here)
+      Store_field(extra_value1, 1, Val_int(0)); // []
+
+      // [Control, Mask_1]
+      extra_value = caml_alloc(2, 0);
+      Store_field(extra_value, 0, Val_int(2));   // Control
+      Store_field(extra_value, 1, extra_value1); // [Mask_1]
+
+      break;
+    default:
+      extra_value = Val_empty_list;
+
+      break;
+    }
+
+    // alloc KeyPress(list(Keyboard.modifier), Keyboard.keycode)
+    ret = caml_alloc(2, 2);
+    Store_field(ret, 0, extra_value); // list(Keyboard.modifier)
+    Store_field(ret, 1, Val_int(key_press_event->detail)); // Keyboard.keycode
 
     break;
   case XCB_CONFIGURE_REQUEST:;
@@ -252,7 +300,6 @@ CAMLprim value rexcb_init(void) {
   if (error_message != NULL) {
     ret = Val_error(error_message);
 
-    free(error_message);
     xcb_disconnect(conn);
   } else {
     ret = Val_ok(Val_unit);

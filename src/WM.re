@@ -54,6 +54,13 @@ let eventHandler = event =>
 
       Log.tracef(m => m("X11 Event - MapRequest for: %i", window));
 
+    | Event.KeyPress(modifiers, key) =>
+      switch (modifiers) {
+      | [Keyboard.Control, Keyboard.Mask_1] =>
+        Log.debug("programming is pure joy =D")
+      | _ => Log.debug("nem rolou")
+      }
+
     /* | Event.Unknown(id) => Log.tracef(m => m("X11 Event - Unknown: %i", id)) */
     | Event.Unknown(id) => ()
     }

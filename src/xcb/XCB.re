@@ -21,10 +21,25 @@ module Window = {
   external move: (t, ~x: int, ~y: int) => unit = "rexcb_move_window";
 };
 
+module Keyboard = {
+  type modifier =
+    | Shift // 0
+    | Lock // 1
+    | Control // 2
+    | Mask_1 // 3
+    | Mask_2 // 4
+    | Mask_3 // 5
+    | Mask_4 // 6
+    | Mask_5; // 7
+
+  type keycode = int;
+};
+
 module Event = {
   type t =
     | Unknown(int) // 0
-    | MapRequest(Window.t); // 1
+    | MapRequest(Window.t) // 1
+    | KeyPress(list(Keyboard.modifier), Keyboard.keycode); // 2
 
   external wait: unit => option(t) = "rexcb_wait_for_event";
 };
