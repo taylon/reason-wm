@@ -28,7 +28,7 @@ let kittyPID = runCommand("kitty", [||]);
 let xtermPID = runCommand("xterm", [||]);
 let kitty3PID = runCommand("pavucontrol", [||]);
 
-Unix.sleep(20);
+Unix.sleep(2);
 
 Unix.kill(wmPID, Sys.sigterm);
 Unix.kill(kittyPID, Sys.sigterm);

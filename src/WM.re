@@ -16,6 +16,9 @@ let exitWM = () => {
 let exitSignalHandler = Sys.Signal_handle(signal => exitWM());
 Sys.set_signal(Sys.sigint, exitSignalHandler);
 Sys.set_signal(Sys.sigterm, exitSignalHandler);
+Sys.set_signal(Sys.sighup, exitSignalHandler);
+Sys.set_signal(Sys.sigquit, exitSignalHandler);
+Sys.set_signal(Sys.sigabrt, exitSignalHandler);
 // ---------
 
 // Window management stuff ---------
@@ -42,7 +45,7 @@ let reArrangeWindows = () => {
 };
 // ---------
 
-// ---------
+// XCB ---------
 let eventHandler = event =>
   XCB.(
     switch (event) {
@@ -66,18 +69,4 @@ let eventHandler = event =>
     }
   );
 
-let start = () => {
-  switch (XCB.init()) {
-  | Ok(_) => Log.debug("Connection with X11 was established")
-  | Error(message) =>
-    Log.errorf(m =>
-      m("Unable to establish connection with X11: %s", message)
-    );
-
-    exitWM();
-  };
-
-  XCB.runEventLoop(eventHandler);
-};
-
-start();
+XCB.runEventLoop(eventHandler, exitWM);
