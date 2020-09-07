@@ -6,6 +6,8 @@ module Log = (val Timber.Log.withNamespace("Test"));
 let runCommand = (cmd, args) =>
   Unix.create_process(cmd, args, Unix.stdin, Unix.stdout, Unix.stderr);
 
+let killApp = pid => Unix.kill(pid, Sys.sigterm);
+
 let displayID = ":1";
 
 // --------
@@ -14,40 +16,32 @@ let xephyrPID =
 
 // Just to make sure Xephyr is available before we do anything else
 Unix.sleepf(0.5);
+
+let killXephyr = () => killApp(xephyrPID);
 // ---------
 
-// This is going to be used implcitly by the following commands to redirect
+// This is going to be used implcitly by all X Clients to redirect
 // everything to the same display used by Xephyr
 Unix.putenv("DISPLAY", displayID);
 
-// -------------
+// ----------
 let wmPID = runCommand(Sys.argv[1] ++ "/WM", [||]);
 Unix.sleepf(1.5);
 
-let kittyPID = runCommand("kitty", [||]);
-let xtermPID = runCommand("xterm", [||]);
-let kitty3PID = runCommand("pavucontrol", [||]);
+let killWM = () => killApp(wmPID);
+// ----------
 
-Unix.sleep(2);
+let testWith = (apps: list(string)) => {
+  let pids = List.map(app => runCommand(app, [||]), apps);
 
-Unix.kill(wmPID, Sys.sigterm);
-Unix.kill(kittyPID, Sys.sigterm);
-Unix.kill(xtermPID, Sys.sigterm);
-Unix.kill(kitty3PID, Sys.sigterm);
+  Unix.sleep(20);
 
-Unix.sleepf(0.5);
-Unix.kill(xephyrPID, Sys.sigterm);
-// -------------
+  killWM();
+  List.iter(killApp, pids);
 
-/* let wmPID = runCommand(Sys.argv[1] ++ "/WM", [||]); */
-/* Unix.sleepf(1.5); */
-/*  */
-/* let xtermPID = runCommand("xterm", [||]); */
-/*  */
-/* Unix.sleep(2); */
-/*  */
-/* Unix.kill(wmPID, Sys.sigterm); */
-/* Unix.kill(xtermPID, Sys.sigterm); */
-/*  */
-/* Unix.sleepf(0.5); */
-/* Unix.kill(xephyrPID, Sys.sigterm); */
+  Unix.sleepf(0.5);
+  killXephyr();
+};
+
+// testWith(["kitty", "xterm", "pavucontrol"]);
+testWith(["gedit"]);
