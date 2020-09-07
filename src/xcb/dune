@@ -8,4 +8,4 @@
   (flags -std=c99)
   (names xcb))
 
-  (c_library_flags (-lxcb-icccm -lxcb-keysyms -lxcb)))
+  (c_library_flags (-lxcb-icccm -lxcb-ewmh -lxcb-keysyms -lxcb)))

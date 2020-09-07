@@ -1,28 +1,36 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <X11/keysym.h>
+#include <xcb/xcb.h>
+#include <xcb/xcb_event.h>
+#include <xcb/xcb_ewmh.h>
+#include <xcb/xcb_icccm.h>
+#include <xcb/xcb_keysyms.h>
+#include <xcb/xproto.h>
 
 #include <caml/alloc.h>
 #include <caml/memory.h>
 #include <caml/mlvalues.h>
 #include <caml/threads.h>
 
-#include <X11/keysym.h>
-#include <xcb/xcb.h>
-#include <xcb/xcb_event.h>
-#include <xcb/xcb_keysyms.h>
-#include <xcb/xproto.h>
-
 static xcb_connection_t *conn;
 static xcb_screen_t *root_screen;
 static xcb_window_t root_window;
 
+xcb_ewmh_connection_t *ewmh;
+
 typedef struct Key {
   xcb_mod_mask_t mod;
-  xcb_keycode_t keycode;
+  xcb_keysym_t keysym;
 } Key;
 
-static Key keys[3] = {
-    {.mod = XCB_MOD_MASK_CONTROL | XCB_MOD_MASK_1, .keycode = XK_q}};
+static Key keys[2] = {
+    {.mod = XCB_MOD_MASK_ANY, .keysym = XK_F3},
+    {.mod = XCB_MOD_MASK_CONTROL | XCB_MOD_MASK_1, .keysym = XK_q}};
 
 void grab_keys(void) {
   xcb_key_symbols_t *keysyms = xcb_key_symbols_alloc(conn);
@@ -30,7 +38,7 @@ void grab_keys(void) {
   for (int i = 0; i < sizeof(keys) / sizeof(Key); i++) {
     // We only use the first keysymbol, even if there are more.
     xcb_keycode_t *keycode =
-        xcb_key_symbols_get_keycode(keysyms, keys[i].keycode);
+        xcb_key_symbols_get_keycode(keysyms, keys[i].keysym);
 
     // Not doing error handling here because I'm pretty sure
     // that this way of grabbing keys won't for too long, when we get
@@ -60,6 +68,92 @@ xcb_generic_error_t *setup_event_mask(void) {
   grab_keys();
 
   return xcb_request_check(conn, cookie);
+}
+
+bool ewmh_init(void) {
+  ewmh = calloc(1, sizeof(xcb_ewmh_connection_t));
+  if (xcb_ewmh_init_atoms_replies(ewmh, xcb_ewmh_init_atoms(conn, ewmh),
+                                  NULL) == 0) {
+    return false;
+  }
+
+  xcb_ewmh_set_wm_pid(ewmh, root_window, getpid());
+  xcb_ewmh_set_wm_name(ewmh, root_window, 2, "WM");
+
+  // not sure if we need the following
+
+  // took this from bspwm so need to figure out what exactly this means and if
+  // it is really necessary
+  /* xcb_ewmh_set_supporting_wm_check(ewmh, root_window, win); */
+  /* xcb_ewmh_set_supporting_wm_check(ewmh, win, win); */
+
+  // xcb_ewmh_set_supported(...)
+}
+
+bool ewmh_window_supports_protocol(xcb_window_t *window, xcb_atom_t atom) {
+  xcb_icccm_get_wm_protocols_reply_t protocols;
+
+  bool result = false;
+  xcb_get_property_cookie_t cookie =
+      xcb_icccm_get_wm_protocols(conn, *window, ewmh->WM_PROTOCOLS);
+
+  if (xcb_icccm_get_wm_protocols_reply(conn, cookie, &protocols, NULL) != 1)
+    return false;
+
+  // Check if the client's protocols have the requested atom set
+  for (uint32_t i = 0; i < protocols.atoms_len; i++)
+    if (protocols.atoms[i] == atom)
+      result = true;
+
+  xcb_icccm_get_wm_protocols_reply_wipe(&protocols);
+
+  return result;
+}
+
+// XXX: this will be reworked soon
+// position on the array must match the position on the enum
+static char *wm_atom_names[1] = {"WM_DELETE_WINDOW"};
+enum { WM_DELETE_WINDOW, WM_ATOMS_COUNT };
+static xcb_atom_t wm_atoms[WM_ATOMS_COUNT];
+
+// TODO: report error when we cannot find one of the atoms
+void init_atoms(void) {
+  for (int i = 0; i < WM_ATOMS_COUNT; i++) {
+    xcb_intern_atom_cookie_t cookie =
+        xcb_intern_atom(conn, 0, strlen(wm_atom_names[i]), wm_atom_names[i]);
+
+    xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply(conn, cookie, NULL);
+    if (reply) {
+      wm_atoms[i] = reply->atom;
+
+      free(reply);
+    }
+  }
+}
+
+void send_event(xcb_window_t window, xcb_atom_t property, xcb_atom_t value) {
+  xcb_client_message_event_t *event = calloc(32, 1);
+
+  event->response_type = XCB_CLIENT_MESSAGE;
+  event->window = window;
+  event->type = property;
+  event->format = 32;
+  event->data.data32[0] = value;
+  event->data.data32[1] = XCB_CURRENT_TIME;
+
+  xcb_send_event(conn, false, window, XCB_EVENT_MASK_NO_EVENT, (char *)event);
+  free(event);
+}
+
+void close_window(xcb_window_t window) {
+  // if the window doesn't support WM_DELETE_WINDOW, then we just kill it
+  if (!ewmh_window_supports_protocol(&window, wm_atoms[WM_DELETE_WINDOW])) {
+    xcb_kill_client(conn, window);
+  } else {
+    send_event(window, ewmh->WM_PROTOCOLS, wm_atoms[WM_DELETE_WINDOW]);
+  }
+
+  xcb_flush(conn);
 }
 
 char *check_connection(xcb_connection_t *connection) {
@@ -99,6 +193,10 @@ char *init(void) {
   if (connection_error != NULL) {
     return connection_error;
   }
+
+  ewmh_init();
+  // TODO: handle error in init_atoms
+  init_atoms();
 
   root_screen = xcb_setup_roots_iterator(xcb_get_setup(conn)).data;
   root_window = root_screen->root;
@@ -192,10 +290,13 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
       break;
     }
 
-    // alloc KeyPress(list(Keyboard.modifier), Keyboard.keycode)
-    ret = caml_alloc(2, 2);
+    // alloc KeyPress(list(Keyboard.modifier), Keyboard.keycode, Window.t)
+    ret = caml_alloc(3, 2);
     Store_field(ret, 0, extra_value); // list(Keyboard.modifier)
     Store_field(ret, 1, Val_int(key_press_event->detail)); // Keyboard.keycode
+
+    // TODO: could child be NULL if there was no window opened?
+    Store_field(ret, 2, Val_int(key_press_event->child)); // Window.t
 
     break;
   case XCB_CONFIGURE_REQUEST:;
@@ -251,6 +352,14 @@ CAMLprim value rexcb_root_screen(void) {
   Store_field(ret, 1, Val_int(root_screen->height_in_pixels));
 
   CAMLreturn(ret);
+}
+
+CAMLprim value rexcb_close_window(value window) {
+  CAMLparam1(window);
+
+  close_window(Int_val(window));
+
+  CAMLreturn(Val_unit);
 }
 
 CAMLprim value rexcb_resize_window(value window_id, value height, value width) {

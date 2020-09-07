@@ -57,10 +57,14 @@ let eventHandler = event =>
 
       Log.tracef(m => m("X11 Event - MapRequest for: %i", window));
 
-    | Event.KeyPress(modifiers, key) =>
+    | Event.KeyPress(modifiers, key, window) =>
       switch (modifiers) {
       | [Keyboard.Control, Keyboard.Mask_1] =>
-        Log.debug("programming is pure joy =D")
+        Log.tracef(m => m("closing window: %i", window));
+        Window.close(window);
+
+      | [] => Log.debugf(m => m("%i", key))
+
       | _ => Log.debug("nem rolou")
       }
 

@@ -34,7 +34,7 @@ let killWM = () => killApp(wmPID);
 let testWith = (apps: list(string)) => {
   let pids = List.map(app => runCommand(app, [||]), apps);
 
-  Unix.sleep(20);
+  Unix.sleep(10);
 
   killWM();
   List.iter(killApp, pids);

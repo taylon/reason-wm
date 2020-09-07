@@ -18,6 +18,8 @@ module Window = {
   external resize: (t, ~height: int, ~width: int) => unit =
     "rexcb_resize_window";
 
+  external close: t => unit = "rexcb_close_window";
+
   external move: (t, ~x: int, ~y: int) => unit = "rexcb_move_window";
 };
 
@@ -39,7 +41,7 @@ module Event = {
   type t =
     | Unknown(int) // 0
     | MapRequest(Window.t) // 1
-    | KeyPress(list(Keyboard.modifier), Keyboard.keycode); // 2
+    | KeyPress(list(Keyboard.modifier), Keyboard.keycode, Window.t); // 2
 
   external wait: unit => option(t) = "rexcb_wait_for_event";
 };
