@@ -41,7 +41,8 @@ module Event = {
   type t =
     | Unknown(int) // 0
     | MapRequest(Window.t) // 1
-    | KeyPress(list(Keyboard.modifier), Keyboard.keycode, Window.t); // 2
+    | DestroyNotify(Window.t) // 2
+    | KeyPress(list(Keyboard.modifier), Keyboard.keycode, Window.t); // 3
 
   external wait: unit => option(t) = "rexcb_wait_for_event";
 };

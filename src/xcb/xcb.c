@@ -28,8 +28,9 @@ typedef struct Key {
   xcb_keysym_t keysym;
 } Key;
 
-static Key keys[2] = {
-    {.mod = XCB_MOD_MASK_ANY, .keysym = XK_F3},
+static Key keys[3] = {
+    {.mod = XCB_MOD_MASK_ANY, .keysym = XK_F6},
+    {.mod = XCB_MOD_MASK_ANY, .keysym = XK_F12},
     {.mod = XCB_MOD_MASK_CONTROL | XCB_MOD_MASK_1, .keysym = XK_q}};
 
 void grab_keys(void) {
@@ -247,7 +248,7 @@ static value Val_error(char *const message) {
   CAMLreturn(error);
 }
 
-// t in `ret = caml_alloc(n, t)` must map to the correct variant in
+// x in `ret = caml_alloc(y, x)` must map to the correct variant in
 // XCB.Event.t
 //
 // https://caml.inria.fr/pub/docs/manual-ocaml/intfc.html#ss:c-block-allocation
@@ -259,7 +260,6 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
 
   switch (event_response_type) {
   case XCB_MAP_REQUEST:;
-    // cast generic event to the proper event
     xcb_map_request_event_t *map_event = (xcb_map_request_event_t *)event;
 
     // alloc MapRequest(window)
@@ -267,6 +267,17 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
     Store_field(ret, 0, Val_int(map_event->window));
 
     break;
+
+  case XCB_DESTROY_NOTIFY:;
+    xcb_destroy_notify_event_t *destroy_event =
+        (xcb_destroy_notify_event_t *)event;
+
+    // alloc DestroyNotify(window)
+    ret = caml_alloc(1, 2);
+    Store_field(ret, 0, Val_int(destroy_event->window));
+
+    break;
+
   case XCB_KEY_PRESS:;
     xcb_key_press_event_t *key_press_event = (xcb_key_press_event_t *)event;
 
@@ -284,6 +295,7 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
       Store_field(extra_value, 1, extra_value1); // [Mask_1]
 
       break;
+
     default:
       extra_value = Val_empty_list;
 
@@ -291,14 +303,15 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
     }
 
     // alloc KeyPress(list(Keyboard.modifier), Keyboard.keycode, Window.t)
-    ret = caml_alloc(3, 2);
+    ret = caml_alloc(3, 3);
     Store_field(ret, 0, extra_value); // list(Keyboard.modifier)
     Store_field(ret, 1, Val_int(key_press_event->detail)); // Keyboard.keycode
 
-    // TODO: could child be NULL if there was no window opened?
+    // TODO: could child be NULL if there was no window open?
     Store_field(ret, 2, Val_int(key_press_event->child)); // Window.t
 
     break;
+
   case XCB_CONFIGURE_REQUEST:;
     xcb_configure_request_event_t *configure_event =
         (xcb_configure_request_event_t *)event;
@@ -315,10 +328,13 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
                          values);
     xcb_flush(conn);
 
+    // For now we do not forward these up
     // alloc Unknown(id)
     ret = caml_alloc(1, 0);
     Store_field(ret, 0, Val_int(event_response_type)); // id
+
     break;
+
   default:
     // alloc Unknown(id)
     ret = caml_alloc(1, 0);
@@ -379,6 +395,7 @@ CAMLprim value rexcb_move_window(value window_id, value x, value y) {
   const uint32_t values[] = {Int_val(x), Int_val(y)};
   xcb_configure_window(conn, Int_val(window_id),
                        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
+  xcb_flush(conn);
 
   CAMLreturn(Val_unit);
 }

@@ -21,17 +21,28 @@ Sys.set_signal(Sys.sigquit, exitSignalHandler);
 Sys.set_signal(Sys.sigabrt, exitSignalHandler);
 // ---------
 
-// Window management stuff ---------
+// We can't wait to get the API right, but it is not time yet! ---------
 let openedWindows = ref([]);
+
 let registerWindow = window => openedWindows := [window, ...openedWindows^];
 
+let deregisterWindow = window =>
+  openedWindows :=
+    List.filter(openedWindow => openedWindow != window, openedWindows^);
+
+// -------
+
+// Window management stuff ---------
 let reArrangeWindows = () => {
   open XCB;
 
   let rootScreen = XCB.rootScreen();
 
   let numberOfWindowsOpen = List.length(openedWindows^);
-  let windowWidth = rootScreen.width / numberOfWindowsOpen;
+  let windowWidth =
+    numberOfWindowsOpen == 0
+      ? rootScreen.width : rootScreen.width / numberOfWindowsOpen;
+
   let xPosition = index => index == 0 ? 0 : windowWidth * index;
 
   List.iteri(
@@ -43,7 +54,61 @@ let reArrangeWindows = () => {
     openedWindows^,
   );
 };
-// ---------
+
+let arrangeForUltrawide = openedWindows => {
+  open XCB;
+
+  let rootScreen = XCB.rootScreen();
+
+  let height = rootScreen.height;
+  let width = numberOfWindows =>
+    numberOfWindows == 0
+      ? rootScreen.width : rootScreen.width / numberOfWindows;
+
+  let resizeEqualy = windows =>
+    List.iter(
+      window =>
+        Window.resize(window, ~width=width(List.length(windows)), ~height),
+      windows,
+    );
+
+  let splitInThree = (primary, secondary, terciary) => {
+    resizeEqualy([primary, secondary, terciary]);
+
+    let xPosition = index => width(3) * index;
+    let yPosition = 0;
+
+    Window.move(secondary, ~x=0, ~y=0);
+    Window.move(primary, ~x=xPosition(1), ~y=yPosition);
+    Window.move(terciary, ~x=xPosition(2), ~y=yPosition);
+  };
+
+  let splitEqualy = reArrangeWindows;
+
+  switch (openedWindows) {
+  | [primary, secondary, terciary] =>
+    splitInThree(primary, secondary, terciary);
+    Log.debugf(m =>
+      m("splitting in three: %i - %i - %i", primary, secondary, terciary)
+    );
+
+  | [primary, secondary] =>
+    splitEqualy();
+    Log.debugf(m => m("splitting in two: %i - %i", primary, secondary));
+
+  | _ =>
+    splitEqualy();
+    Log.debugf(m => m("splitting equaly"));
+  };
+};
+
+let focusOn = window => {
+  let otherWindows =
+    List.filter(openedWindow => openedWindow != window, openedWindows^);
+
+  arrangeForUltrawide([window, ...otherWindows]);
+};
+// Dirty experiment ---------
 
 // XCB ---------
 let eventHandler = event =>
@@ -57,13 +122,24 @@ let eventHandler = event =>
 
       Log.tracef(m => m("X11 Event - MapRequest for: %i", window));
 
+    | Event.DestroyNotify(window) =>
+      Log.debugf(m => m("Destroy %i", window));
+
+      deregisterWindow(window);
+      reArrangeWindows();
+
     | Event.KeyPress(modifiers, key, window) =>
       switch (modifiers) {
       | [Keyboard.Control, Keyboard.Mask_1] =>
         Log.tracef(m => m("closing window: %i", window));
         Window.close(window);
 
-      | [] => Log.debugf(m => m("%i", key))
+      | [] =>
+        switch (key) {
+        | 72 => focusOn(4194326)
+        | 96 => focusOn(8388621)
+        | _ => Log.debug("Can't handle this key")
+        }
 
       | _ => Log.debug("nem rolou")
       }
