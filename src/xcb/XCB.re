@@ -11,16 +11,22 @@ type screen = {
 external rootScreen: unit => screen = "rexcb_root_screen";
 
 module Window = {
-  type t = int;
+  type id = int;
 
-  external show: t => unit = "rexcb_show_window";
+  type t = {
+    id,
+    className: string,
+    instanceName: string,
+  };
 
-  external resize: (t, ~height: int, ~width: int) => unit =
+  external show: id => unit = "rexcb_show_window";
+
+  external resize: (id, ~height: int, ~width: int) => unit =
     "rexcb_resize_window";
 
-  external close: t => unit = "rexcb_close_window";
+  external close: id => unit = "rexcb_close_window";
 
-  external move: (t, ~x: int, ~y: int) => unit = "rexcb_move_window";
+  external move: (id, ~x: int, ~y: int) => unit = "rexcb_move_window";
 };
 
 module Keyboard = {
@@ -41,8 +47,8 @@ module Event = {
   type t =
     | Unknown(int) // 0
     | MapRequest(Window.t) // 1
-    | DestroyNotify(Window.t) // 2
-    | KeyPress(list(Keyboard.modifier), Keyboard.keycode, Window.t); // 3
+    | DestroyNotify(Window.id) // 2
+    | KeyPress(list(Keyboard.modifier), Keyboard.keycode, Window.id); // 3
 
   external wait: unit => option(t) = "rexcb_wait_for_event";
 };

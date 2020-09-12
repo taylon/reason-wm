@@ -71,6 +71,7 @@ xcb_generic_error_t *setup_event_mask(void) {
   return xcb_request_check(conn, cookie);
 }
 
+// TODO: Error handling
 bool ewmh_init(void) {
   ewmh = calloc(1, sizeof(xcb_ewmh_connection_t));
   if (xcb_ewmh_init_atoms_replies(ewmh, xcb_ewmh_init_atoms(conn, ewmh),
@@ -111,7 +112,7 @@ bool ewmh_window_supports_protocol(xcb_window_t *window, xcb_atom_t atom) {
   return result;
 }
 
-// XXX: this will be reworked soon
+// TODO: this will be reworked soon
 // position on the array must match the position on the enum
 static char *wm_atom_names[1] = {"WM_DELETE_WINDOW"};
 enum { WM_DELETE_WINDOW, WM_ATOMS_COUNT };
@@ -258,13 +259,30 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
 
   uint8_t event_response_type = XCB_EVENT_RESPONSE_TYPE(event);
 
+  // TODO: We need to clean this all up, put the handling
+  // of each case into it's own function otherwise handling
+  // the CAMLlocals becames a mess
   switch (event_response_type) {
   case XCB_MAP_REQUEST:;
     xcb_map_request_event_t *map_event = (xcb_map_request_event_t *)event;
 
-    // alloc MapRequest(window)
+    // alloc Window.t
+    extra_value = caml_alloc(3, 0);
+    Store_field(extra_value, 0, Val_int(map_event->window)); // id
+
+    xcb_icccm_get_wm_class_reply_t reply;
+    if (xcb_icccm_get_wm_class_reply(
+            conn, xcb_icccm_get_wm_class_unchecked(conn, map_event->window),
+            &reply, NULL) == 1) {
+      Store_field(extra_value, 1, caml_copy_string(reply.class_name));
+      Store_field(extra_value, 2, caml_copy_string(reply.instance_name));
+
+      xcb_icccm_get_wm_class_reply_wipe(&reply);
+    }
+
+    // alloc MapRequest(Window.t)
     ret = caml_alloc(1, 1);
-    Store_field(ret, 0, Val_int(map_event->window));
+    Store_field(ret, 0, extra_value); // Window.t
 
     break;
 
@@ -272,7 +290,7 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
     xcb_destroy_notify_event_t *destroy_event =
         (xcb_destroy_notify_event_t *)event;
 
-    // alloc DestroyNotify(window)
+    // alloc DestroyNotify(Window.id)
     ret = caml_alloc(1, 2);
     Store_field(ret, 0, Val_int(destroy_event->window));
 
@@ -302,13 +320,13 @@ CAMLprim value Val_xcb_event(xcb_generic_event_t *event) {
       break;
     }
 
-    // alloc KeyPress(list(Keyboard.modifier), Keyboard.keycode, Window.t)
+    // alloc KeyPress(list(Keyboard.modifier), Keyboard.keycode, Window.id)
     ret = caml_alloc(3, 3);
     Store_field(ret, 0, extra_value); // list(Keyboard.modifier)
     Store_field(ret, 1, Val_int(key_press_event->detail)); // Keyboard.keycode
 
     // TODO: could child be NULL if there was no window open?
-    Store_field(ret, 2, Val_int(key_press_event->child)); // Window.t
+    Store_field(ret, 2, Val_int(key_press_event->child)); // Window.id
 
     break;
 
@@ -412,6 +430,9 @@ CAMLprim value rexcb_show_window(value window_id) {
 
 CAMLprim value rexcb_disconnect(void) {
   CAMLparam0();
+
+  xcb_ewmh_connection_wipe(ewmh);
+  free(ewmh);
 
   xcb_disconnect(conn);
 
