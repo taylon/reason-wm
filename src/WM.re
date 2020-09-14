@@ -1,3 +1,5 @@
+let () = Printexc.record_backtrace(true);
+
 Timber.App.enable();
 Timber.App.setLevel(Timber.Level.trace);
 
@@ -24,136 +26,100 @@ Sys.set_signal(Sys.sigabrt, exitSignalHandler);
 // We can't wait to get the API right, but it is not time yet! ---------
 let openedWindows: ref(list(XCB.Window.t)) = ref([]);
 
-let registerWindow = window => openedWindows := [window, ...openedWindows^];
-
-let deregisterWindow = windowID =>
-  openedWindows :=
-    List.filter(
-      (openedWindow: XCB.Window.t) => openedWindow.id != windowID,
-      openedWindows^,
-    );
-
-// -------
-
-// Window management stuff ---------
-let reArrangeWindows = () => {
+let arrangeWindows = windows => {
   open XCB;
   open XCB.Window;
 
   let rootScreen = XCB.rootScreen();
 
-  let numberOfWindowsOpen = List.length(openedWindows^);
+  let numberOfWindows = List.length(windows);
   let windowWidth =
-    numberOfWindowsOpen == 0
-      ? rootScreen.width : rootScreen.width / numberOfWindowsOpen;
+    numberOfWindows == 0
+      ? rootScreen.width : rootScreen.width / numberOfWindows;
 
   let xPosition = index => index == 0 ? 0 : windowWidth * index;
 
   List.iteri(
     (index, window) => {
       Window.resize(window.id, ~width=windowWidth, ~height=rootScreen.height);
-
       Window.move(window.id, ~x=xPosition(index), ~y=0);
     },
+    windows,
+  );
+
+  openedWindows := windows;
+};
+
+let openWindow = window => {
+  arrangeWindows([window, ...openedWindows^]);
+  XCB.Window.show(window.id);
+};
+
+let closeWindow = id =>
+  openedWindows^
+  |> List.filter((openedWindow: XCB.Window.t) => openedWindow.id != id)
+  |> arrangeWindows;
+
+let findWindow = className =>
+  List.find_opt(
+    (openedWindow: XCB.Window.t) => openedWindow.className == className,
     openedWindows^,
   );
-};
 
-let arrangeForUltrawide = openedWindows => {
-  open XCB;
-  open XCB.Window;
-
-  let rootScreen = XCB.rootScreen();
-
-  let height = rootScreen.height;
-  let width = numberOfWindows =>
-    numberOfWindows == 0
-      ? rootScreen.width : rootScreen.width / numberOfWindows;
-
-  let resizeEqualy = windows =>
-    List.iter(
-      window =>
-        Window.resize(
-          window.id,
-          ~width=width(List.length(windows)),
-          ~height,
-        ),
-      windows,
-    );
-
-  let splitInThree = (primary, secondary, terciary) => {
-    resizeEqualy([primary, secondary, terciary]);
-
-    let xPosition = index => width(3) * index;
-    let yPosition = 0;
-
-    Window.move(secondary.id, ~x=0, ~y=0);
-    Window.move(primary.id, ~x=xPosition(1), ~y=yPosition);
-    Window.move(terciary.id, ~x=xPosition(2), ~y=yPosition);
-  };
-
-  let splitEqualy = reArrangeWindows;
-
-  switch (openedWindows) {
-  | [primary, secondary, terciary] =>
-    splitInThree(primary, secondary, terciary)
-
-  | _ =>
-    splitEqualy();
-    Log.debugf(m => m("splitting equaly"));
-  };
-};
-
-type application =
-  | Browser
-  | Vim
-  | Terminal;
+// -------
 
 let focusOn = className => {
   open XCB.Window;
 
-  let otherWindows =
-    List.filter(
-      openedWindow => openedWindow.className != className,
-      openedWindows^,
-    );
+  Log.tracef(m => m("focusing on %s", className));
 
-  let windowToFocus =
-    List.find(
-      openedWindow => openedWindow.className == className,
-      openedWindows^,
-    );
+  let browser = findWindow("XTerm");
+  let vim = findWindow(".");
+  let terminal = findWindow("kitty");
 
-  arrangeForUltrawide([windowToFocus, ...otherWindows]);
+  let windows =
+    switch (findWindow(className)) {
+    | Some(windowToFocus) =>
+      switch (windowToFocus.className) {
+      | "kitty" => [browser, terminal, vim]
+      | "XTerm" => [vim, browser, terminal]
+      | "." => [browser, vim, terminal]
+      | _ => [Some(windowToFocus), browser, vim, terminal]
+      }
+    | None => [browser, vim, terminal]
+    };
+
+  arrangeWindows(
+    windows |> List.filter(Option.is_some) |> List.map(Option.get),
+  );
 };
-// ---------
 
 // XCB ---------
 let eventHandler = event =>
   XCB.(
     switch (event) {
     | Event.MapRequest(window) =>
-      registerWindow(window);
-      reArrangeWindows();
-
-      Window.show(window.id);
-
       Log.tracef(m => m("X11 Event - MapRequest for: %s", window.className));
 
-    | Event.DestroyNotify(windowID) =>
-      Log.debugf(m => m("Destroy %i", windowID));
+      openWindow(window);
 
-      deregisterWindow(windowID);
-      reArrangeWindows();
+    | Event.DestroyNotify(id) =>
+      Log.debugf(m => m("X11 Event - DestroyNotify for: %i", id));
+
+      closeWindow(id);
 
     | Event.KeyPress(modifiers, key, windowID) =>
       switch (modifiers) {
       | [Keyboard.Control, Keyboard.Mask_1] =>
         Log.tracef(m => m("closing window: %i", windowID));
+
         Window.close(windowID);
 
       | [] =>
         switch (key) {
+        | 68 => focusOn("XTerm") // F2
+        | 69 => focusOn(".") // F3
+        | 70 => focusOn("kitty") // F4
         | 72 => focusOn("kitty") // leader
         | 96 => focusOn("XTerm") // file nav
         | _ => Log.debug("Can't handle this key")

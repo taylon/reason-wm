@@ -28,7 +28,10 @@ typedef struct Key {
   xcb_keysym_t keysym;
 } Key;
 
-static Key keys[3] = {
+static Key keys[6] = {
+    {.mod = XCB_MOD_MASK_ANY, .keysym = XK_F2},
+    {.mod = XCB_MOD_MASK_ANY, .keysym = XK_F3},
+    {.mod = XCB_MOD_MASK_ANY, .keysym = XK_F4},
     {.mod = XCB_MOD_MASK_ANY, .keysym = XK_F6},
     {.mod = XCB_MOD_MASK_ANY, .keysym = XK_F12},
     {.mod = XCB_MOD_MASK_CONTROL | XCB_MOD_MASK_1, .keysym = XK_q}};

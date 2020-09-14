@@ -34,7 +34,7 @@ let killWM = () => killApp(wmPID);
 let testWith = (apps: list(string)) => {
   let pids = List.map(app => runCommand(app, [||]), apps);
 
-  Unix.sleep(5);
+  Unix.sleep(60);
 
   killWM();
   List.iter(killApp, pids);
@@ -43,6 +43,6 @@ let testWith = (apps: list(string)) => {
   killXephyr();
 };
 
-testWith(["xterm", "kitty", "pavucontrol"]);
+testWith(["pavucontrol", "kitty", "xterm"]);
 // testWith(["pavucontrol"]);
 // testWith(["epiphany"]);
