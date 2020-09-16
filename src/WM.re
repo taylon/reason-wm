@@ -9,7 +9,7 @@ Log.debug("Starting...");
 
 // Signal Handling ---------
 let exitWM = () => {
-  Log.trace("Exiting the window manager...");
+  Log.info("Exiting...");
 
   XCB.disconnect();
   exit(0);
@@ -23,64 +23,45 @@ Sys.set_signal(Sys.sigquit, exitSignalHandler);
 Sys.set_signal(Sys.sigabrt, exitSignalHandler);
 // ---------
 
-// We can't wait to get the API right, but it is not time yet! ---------
-let openedWindows: ref(list(XCB.Window.t)) = ref([]);
+open Backend;
+open Backend.Window;
 
 let arrangeWindows = windows => {
-  open XCB;
-  open XCB.Window;
-
-  let rootScreen = XCB.rootScreen();
-
   let numberOfWindows = List.length(windows);
+
   let windowWidth =
-    numberOfWindows == 0
-      ? rootScreen.width : rootScreen.width / numberOfWindows;
+    numberOfWindows == 0 ? Display.width : Display.width / numberOfWindows;
 
   let xPosition = index => index == 0 ? 0 : windowWidth * index;
 
-  List.iteri(
-    (index, window) => {
-      Window.resize(window.id, ~width=windowWidth, ~height=rootScreen.height);
-      Window.move(window.id, ~x=xPosition(index), ~y=0);
+  let windowPerIndex = (index, window) => {
+    ...window,
+
+    position: {
+      x: xPosition(index),
+      y: 0,
     },
-    windows,
-  );
 
-  openedWindows := windows;
+    dimensions: {
+      width: windowWidth,
+      height: Display.height,
+    },
+  };
+
+  List.mapi(windowPerIndex, windows);
 };
 
-let openWindow = window => {
-  arrangeWindows([window, ...openedWindows^]);
-  XCB.Window.show(window.id);
-};
+let focusOn = app => {
+  let browser = Window.find(window => window.app == "XTerm");
+  let vim = Window.find(window => window.app == ".");
+  let terminal = Window.find(window => window.app == "kitty");
 
-let closeWindow = id =>
-  openedWindows^
-  |> List.filter((openedWindow: XCB.Window.t) => openedWindow.id != id)
-  |> arrangeWindows;
-
-let findWindow = className =>
-  List.find_opt(
-    (openedWindow: XCB.Window.t) => openedWindow.className == className,
-    openedWindows^,
-  );
-
-// -------
-
-let focusOn = className => {
-  open XCB.Window;
-
-  Log.tracef(m => m("focusing on %s", className));
-
-  let browser = findWindow("XTerm");
-  let vim = findWindow(".");
-  let terminal = findWindow("kitty");
+  let windowToFocus = Window.find(window => window.app == app);
 
   let windows =
-    switch (findWindow(className)) {
+    switch (windowToFocus) {
     | Some(windowToFocus) =>
-      switch (windowToFocus.className) {
+      switch (windowToFocus.app) {
       | "kitty" => [browser, terminal, vim]
       | "XTerm" => [vim, browser, terminal]
       | "." => [browser, vim, terminal]
@@ -94,43 +75,4 @@ let focusOn = className => {
   );
 };
 
-// XCB ---------
-let eventHandler = event =>
-  XCB.(
-    switch (event) {
-    | Event.MapRequest(window) =>
-      Log.tracef(m => m("X11 Event - MapRequest for: %s", window.className));
-
-      openWindow(window);
-
-    | Event.DestroyNotify(id) =>
-      Log.debugf(m => m("X11 Event - DestroyNotify for: %i", id));
-
-      closeWindow(id);
-
-    | Event.KeyPress(modifiers, key, windowID) =>
-      switch (modifiers) {
-      | [Keyboard.Control, Keyboard.Mask_1] =>
-        Log.tracef(m => m("closing window: %i", windowID));
-
-        Window.close(windowID);
-
-      | [] =>
-        switch (key) {
-        | 68 => focusOn("XTerm") // F2
-        | 69 => focusOn(".") // F3
-        | 70 => focusOn("kitty") // F4
-        | 72 => focusOn("kitty") // leader
-        | 96 => focusOn("XTerm") // file nav
-        | _ => Log.debug("Can't handle this key")
-        }
-
-      | _ => Log.debug("nem rolou")
-      }
-
-    /* | Event.Unknown(id) => Log.tracef(m => m("X11 Event - Unknown: %i", id)) */
-    | Event.Unknown(id) => ()
-    }
-  );
-
-XCB.runEventLoop(eventHandler, exitWM);
+Backend.runEventLoop(arrangeWindows, focusOn);
