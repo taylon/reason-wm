@@ -53,11 +53,3 @@ module Event = {
 
   external wait: unit => option(t) = "rexcb_wait_for_event";
 };
-
-let runEventLoop = eventHandler =>
-  while (true) {
-    switch (Event.wait()) {
-    | None => Log.trace("No event!!")
-    | Some(event) => eventHandler(event)
-    };
-  };

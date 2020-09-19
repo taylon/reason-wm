@@ -51,12 +51,14 @@ let arrangeWindows = windows => {
   List.mapi(windowPerIndex, windows);
 };
 
-let focusOn = app => {
-  let browser = Window.find(window => window.app == "XTerm");
-  let vim = Window.find(window => window.app == ".");
-  let terminal = Window.find(window => window.app == "kitty");
+let focusOn = (allWindows, app) => {
+  let findWindow = ListLabels.find_opt(allWindows);
 
-  let windowToFocus = Window.find(window => window.app == app);
+  let browser = findWindow(window => window.app == "XTerm");
+  let vim = findWindow(window => window.app == ".");
+  let terminal = findWindow(window => window.app == "kitty");
+
+  let windowToFocus = findWindow(window => window.app == app);
 
   let windows =
     switch (windowToFocus) {
@@ -75,4 +77,4 @@ let focusOn = app => {
   );
 };
 
-Backend.runEventLoop(arrangeWindows, focusOn);
+Backend.run(arrangeWindows, focusOn);

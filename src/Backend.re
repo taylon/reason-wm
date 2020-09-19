@@ -36,35 +36,28 @@ module Window = {
   let windowFromXCB = (window: XCB.Window.t) => {
     id: window.id,
     hidden: false,
+
     // TODO: fallback to instanceName if className not found?
     app: window.className,
+
     position: {
       x: 0,
       y: 0,
     },
+
     dimensions: {
       width: Display.width,
       height: Display.height,
     },
   };
 
-  // --------
-  let currentlyOpened: ref(list(t)) = ref([]);
   let show = (window: XCB.Window.t) => {
-    currentlyOpened := [windowFromXCB(window), ...currentlyOpened^];
-
     XCB.Window.show(window.id);
+
+    windowFromXCB(window);
   };
 
-  let close = id => {
-    XCB.Window.close(id);
-
-    currentlyOpened :=
-      List.filter(window => window.id != id, currentlyOpened^);
-  };
-  // --------
-
-  let find = predicate => List.find_opt(predicate, currentlyOpened^);
+  let close = XCB.Window.close;
 
   let resize = ({id, dimensions: {width, height}}: t) =>
     XCB.Window.resize(id, ~width, ~height);
@@ -72,28 +65,26 @@ module Window = {
   let move = ({id, position: {x, y}}: t) => XCB.Window.move(id, ~x, ~y);
 };
 
-let draw = windows =>
-  List.iter(
-    window => {
-      Window.resize(window);
-      Window.move(window);
-    },
-    windows,
-  );
+let draw =
+  List.iter(window => {
+    Window.resize(window);
+    Window.move(window);
+  });
 
-let eventHandler = (arrangeWindows, focusOn, event) =>
+let eventHandler = (~windows, ~arrangeWindows, ~focusOn, ~event) =>
   switch (event) {
   | XCB.Event.MapRequest(window) =>
     Log.tracef(m => m("X11 Event - MapRequest for: %s", window.className));
 
-    Window.show(window);
+    [Window.show(window), ...windows] |> arrangeWindows;
 
-    draw(arrangeWindows(Window.currentlyOpened^));
+  | XCB.Event.DestroyNotify(windowID) =>
+    Log.debugf(m => m("X11 Event - DestroyNotify for: %i", windowID));
 
-  | XCB.Event.DestroyNotify(id) =>
-    Log.debugf(m => m("X11 Event - DestroyNotify for: %i", id));
+    Window.close(windowID);
 
-    Window.close(id);
+    List.filter((window: Window.t) => window.id != windowID, windows)
+    |> arrangeWindows;
 
   | XCB.Event.KeyPress(modifiers, key, windowID) =>
     switch (modifiers) {
@@ -102,27 +93,36 @@ let eventHandler = (arrangeWindows, focusOn, event) =>
 
       Window.close(windowID);
 
-      draw(arrangeWindows(Window.currentlyOpened^));
+      List.filter((window: Window.t) => window.id != windowID, windows)
+      |> arrangeWindows;
 
     | [] =>
-      let newArrangement =
-        switch (key) {
-        | 68 => focusOn("XTerm") // F2
-        | 69 => focusOn(".") // F3
-        | 70 => focusOn("kitty") // F4
-        | 72 => focusOn("kitty") // leader
-        | 96 => focusOn("XTerm") // file nav
-        | _ => arrangeWindows(Window.currentlyOpened^)
-        };
+      let focusOnWindowRunning = focusOn(windows);
 
-      draw(newArrangement);
+      switch (key) {
+      | 68 => focusOnWindowRunning("XTerm") // F2
+      | 69 => focusOnWindowRunning(".") // F3
+      | 70 => focusOnWindowRunning("kitty") // F4
+      | 72 => focusOnWindowRunning("kitty") // leader
+      | 96 => focusOnWindowRunning("XTerm") // file nav
+      | _ => windows
+      };
 
-    | _ => Log.debug("nem rolou")
+    | _ => windows
     }
 
   /* | Event.Unknown(id) => Log.tracef(m => m("X11 Event - Unknown: %i", id)) */
-  | XCB.Event.Unknown(id) => ()
+  | XCB.Event.Unknown(id) => windows
   };
 
-let runEventLoop = (arrangeWindows, focusOn) =>
-  XCB.runEventLoop(eventHandler(arrangeWindows, focusOn));
+let rec run = (~windows=[], arrangeWindows, focusOn) =>
+  switch (XCB.Event.wait()) {
+  | None => Log.trace("No event!!")
+  | Some(event) =>
+    let currentWindows =
+      eventHandler(~windows, ~arrangeWindows, ~focusOn, ~event);
+
+    draw(currentWindows);
+
+    run(~windows=currentWindows, arrangeWindows, focusOn);
+  };
