@@ -1,0 +1,6 @@
+(executable
+  (name CLI)
+  (package Client)
+  (public_name Client)
+  (libraries lwt lwt.unix timber)
+  (preprocess (pps lwt_ppx)))

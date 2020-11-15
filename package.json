@@ -1,5 +1,5 @@
 {
-  "name": "wm",
+  "name": "reason-wm",
   "version": "0.1.0",
   "description": "Window Manager written in ReasonML",
   "license": "MIT",
@@ -13,11 +13,14 @@
   "scripts": {
     "format": "bash -c \"refmt --in-place **/*.re\"",
     "run": "esy x WM",
+    "c": "esy dune exec src/Client/CLI.exe",
     "test": "esy '@e2etest' run"
   },
   "dependencies": {
     "@esy-ocaml/reason": "^3.6.0",
     "@opam/dune": "2.7.0",
+    "@opam/lwt": "*",
+    "@opam/lwt_ppx": "*",
     "ocaml": "~4.10",
     "@glennsl/timber": "^1.2.0"
   },

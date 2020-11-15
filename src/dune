@@ -2,5 +2,5 @@
   (name WM)
   (package WM)
   (public_name WM)
-  (libraries timber xcb))
-
+  (libraries lwt lwt.unix timber xcb)
+  (preprocess (pps lwt_ppx)))

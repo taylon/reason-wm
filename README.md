@@ -1,11 +1,11 @@
-# WIP
+# ReasonWM
 
-# Credits
+An experimental X11 window manager writen in ReasonML and C (XCB)
 
-In order to write this I used the following projects as reference:
+The following projects were used as reference:
 
-i3
-bspwm
-XMonad
-dwm
+[i3](https://i3wm.org/)
+[bspwm](https://github.com/baskerville/bspwm)
+[XMonad](https://xmonad.org/)
+[dwm](https://dwm.suckless.org/)
 

@@ -77,4 +77,6 @@ let focusOn = (allWindows, app) => {
   );
 };
 
+Server.run();
+
 Backend.run(arrangeWindows, focusOn);
